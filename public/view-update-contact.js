@@ -183,11 +183,13 @@
   }
 
   async function openModal() {
+    const modal = document.getElementById("custom-modal");
     const content = document.getElementById("custom-modal-content");
     const submit = document.getElementById("custom-modal-submit");
     content.innerHTML = '<p class="text-center">Loading…</p>';
     submit.disabled = true;
     document.getElementById("custom-modal").classList.remove("hidden");
+    modal.classList.add("flex");
 
     // get conversation & contact
     const parts = location.pathname.split("/");
