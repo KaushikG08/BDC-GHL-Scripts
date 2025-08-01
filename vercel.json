@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/contact-snooze",
+      "destination": "/contact-snooze.js"
+    }
+  ]
+}
