@@ -152,7 +152,7 @@
     const modal = document.createElement("div");
     modal.id = "custom-modal";
     modal.className =
-      "fixed inset-0 z-[999] hidden items-center justify-center p-4";
+      "fixed inset-0 z-[999] flex hidden items-center justify-center p-4";
     modal.style.backgroundColor = "rgba(0,0,0,0.5)";
     modal.style.backdropFilter = "blur(2px)";
     modal.innerHTML = `
@@ -183,13 +183,11 @@
   }
 
   async function openModal() {
-    const modal = document.getElementById("custom-modal");
     const content = document.getElementById("custom-modal-content");
     const submit = document.getElementById("custom-modal-submit");
     content.innerHTML = '<p class="text-center">Loading…</p>';
     submit.disabled = true;
     document.getElementById("custom-modal").classList.remove("hidden");
-    modal.classList.add("flex");
 
     // get conversation & contact
     const parts = location.pathname.split("/");
