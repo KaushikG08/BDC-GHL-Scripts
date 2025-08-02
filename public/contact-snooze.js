@@ -51,7 +51,9 @@
     // Avoid double-inject
     if (!document.getElementById("snooze-btn")) {
       // Adjust existing Delete button styling
-      const deleteBtn = btnGroup.lastElementChild;
+      // const deleteBtn = btnGroup.lastElementChild;
+      const buttons = btnGroup.children;
+      const deleteBtn = buttons[buttons.length - 2];
       deleteBtn.classList.remove("rounded-r-md", "mr-2");
 
       // Create Snooze button
@@ -66,7 +68,7 @@
                 stroke-linecap="round" stroke-linejoin="round"/>
         </svg>`;
       btnGroup.insertBefore(snoozeBtn, deleteBtn);
-      deleteBtn.classList.add("border-l-0", "rounded-r-md", "mr-2");
+      // deleteBtn.classList.add("border-l-0", "rounded-r-md", "mr-2");
 
       console.log("[SNOOZE] Snooze button inserted");
     }
