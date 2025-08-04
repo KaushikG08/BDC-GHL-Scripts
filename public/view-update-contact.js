@@ -13,7 +13,7 @@
       snooze: "lFH0oXwb1HRVHRTVEV0b",
       followUp: "51r5VSCTYc0XxEHD8N3T",
     },
-    // "Nw2jglUnVxhwl6AwSb9x": {
+    // Nw2jglUnVxhwl6AwSb9x: {
     //   offerAmount: "lXNMbvMZxiBwqmup3kCL",
     //   mileage: "tNs29SvYTZsFBuDOuEam",
     //   status: "sWqHCvduvLnvpO89Dweo",
@@ -23,30 +23,36 @@
     //   offerLink: "vh93I68LAQxEmdTyLK4s",
     //   vin: "OliCYQB3ISqtmjR9HLlF",
     //   snooze: "e66nNGVBWFKvZwGmzD10",
-    //   followUp: "XeNHeoXErWXWDH7NJs1S"
-    // }
+    //   followUp: "XeNHeoXErWXWDH7NJs1S",
+    // },
   };
 
-  // Get current location ID
-  const locMatch = location.pathname.match(/\/v2\/location\/([^/]+)/);
-  const currentLocation = locMatch ? locMatch[1] : null;
-
-  // Exit if not a supported location
-  if (!currentLocation || !LOCATION_FIELDS[currentLocation]) return;
-
-  // Get field map for current location
-  const fieldMap = LOCATION_FIELDS[currentLocation];
-
-  // Track modal state
+  // State variables
+  let isInitialized = false;
+  let observer = null;
+  let currentCustomFields = [];
   let isMinimized = false;
   let originalFormContent = null;
   let isDragging = false;
   let startX, startY, initialLeft, initialTop;
-  let currentCustomFields = []; // Store the current custom fields
 
-  // ——————————————————————————————————————————————
-  // Helpers
-  // ——————————————————————————————————————————————
+  // Helper functions
+  function isConversationPage() {
+    return /\/v2\/location\/[^/]+\/conversations\/[^/]+/.test(
+      window.location.pathname
+    );
+  }
+
+  function getCurrentLocation() {
+    const locMatch = location.pathname.match(/\/v2\/location\/([^/]+)/);
+    return locMatch ? locMatch[1] : null;
+  }
+
+  function getFieldMap() {
+    const currentLocation = getCurrentLocation();
+    return LOCATION_FIELDS[currentLocation] || null;
+  }
+
   function waitFor(selector, timeout = 10000) {
     return new Promise((resolve, reject) => {
       const start = Date.now();
@@ -78,6 +84,9 @@
   }
 
   function generateFormHTML(customFields) {
+    const fieldMap = getFieldMap();
+    if (!fieldMap) return "";
+
     const fieldDefinitions = [
       { name: "offerAmount", label: "Offer Amount (USD)", type: "number" },
       { name: "mileage", label: "Mileage", type: "number" },
@@ -100,45 +109,44 @@
       <form id="custom-update-form" class="grid grid-cols-2 gap-4">
         ${fieldDefinitions
           .map((field) => {
-            // Find existing value from custom fields
-            const existing = customFields.find(
-              (cf) => cf.id === fieldMap[field.name]
-            );
-            const value = existing?.value || "";
             const fieldId = fieldMap[field.name];
+            if (!fieldId) return "";
+
+            const existing = customFields.find((cf) => cf.id === fieldId);
+            const value = existing?.value || "";
             const inputClass =
               "border border-gray-300 rounded w-full p-2 text-sm mt-1";
 
-            // Skip if field not mapped for this location
-            if (!fieldId) return "";
-
             if (field.type === "select") {
               return `<div class="space-y-1">
-                <label class="text-sm text-gray-600">${field.label}</label>
-                <select name="${field.name}" class="${inputClass}">
-                  ${field.options
-                    .map(
-                      (o) =>
-                        `<option ${
-                          o === value ? "selected" : ""
-                        } value="${o}">${o}</option>`
-                    )
-                    .join("")}
-                </select>
-              </div>`;
+              <label class="text-sm text-gray-600">${field.label}</label>
+              <select name="${field.name}" class="${inputClass}">
+                ${field.options
+                  .map(
+                    (o) =>
+                      `<option ${
+                        o === value ? "selected" : ""
+                      } value="${o}">${o}</option>`
+                  )
+                  .join("")}
+              </select>
+            </div>`;
             }
 
             return `<div class="space-y-1">
-              <label class="text-sm text-gray-600">${field.label}</label>
-              <input type="${field.type}" name="${field.name}" 
-                     value="${value}" class="${inputClass}" />
-            </div>`;
+            <label class="text-sm text-gray-600">${field.label}</label>
+            <input type="${field.type}" name="${field.name}" 
+                   value="${value}" class="${inputClass}" />
+          </div>`;
           })
           .join("")}
       </form>`;
   }
 
   function generateMinimizedContent() {
+    const fieldMap = getFieldMap();
+    if (!fieldMap) return "";
+
     const getValue = (fieldName) => {
       const fieldId = fieldMap[fieldName];
       if (!fieldId) return "N/A";
@@ -167,48 +175,9 @@
     `;
   }
 
-  // ——————————————————————————————————————————————
-  // UI Builders
-  // ——————————————————————————————————————————————
-  async function createDetailsButton() {
-    try {
-      const btnGroup = await waitFor(".button-group.flex");
-      console.log("[DETAILS] Found button group");
-
-      // Avoid double-inject
-      if (!document.getElementById("details-btn")) {
-        // Get the second last button (which should be the delete button)
-        const buttons = btnGroup.children;
-        const deleteBtn = buttons[buttons.length - 2];
-
-        // Create Details button
-        const detailsBtn = document.createElement("button");
-        detailsBtn.id = "details-btn";
-        detailsBtn.className =
-          "flex items-center px-2.5 py-1 border border-gray-300 border-l-0";
-        detailsBtn.title = "Vehicle Details";
-        detailsBtn.innerHTML = `
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" 
-               viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round"
-                  d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
-          </svg>`;
-
-        // Insert before the delete button (second last position)
-        btnGroup.insertBefore(detailsBtn, deleteBtn);
-
-        // Add click event to open modal
-        detailsBtn.addEventListener("click", openModal);
-
-        console.log("[DETAILS] Button inserted in button group");
-      }
-    } catch (err) {
-      console.error("Error creating details button:", err);
-    }
-  }
-
   function createModal() {
     if (document.getElementById("custom-modal")) return;
+
     const modal = document.createElement("div");
     modal.id = "custom-modal";
     modal.className = "fixed z-[999] hidden";
@@ -247,14 +216,12 @@
         <button id="custom-modal-submit" class="bg-blue-600 text-white py-2 px-6 rounded disabled:opacity-50" disabled>Update</button>
       </div>
       
-      <!-- Resize handle -->
       <div class="resize-handle cursor-pointer absolute bottom-2 right-2 w-4 h-4 cursor-se-resize">
-        <svg class="w-5 h-5"  viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor">
-        <path d="M21 15L15 21M21 8L8 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor">
+          <path d="M21 15L15 21M21 8L8 21" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
       </div>`;
 
-    // Setup dragging and resizing
     setupModalDrag();
     setupModalResize();
   }
@@ -269,16 +236,13 @@
         e.preventDefault();
         isDragging = true;
 
-        // Get current modal position
         const rect = modal.getBoundingClientRect();
         initialLeft = rect.left;
         initialTop = rect.top;
 
-        // Store mouse starting position
         startX = e.clientX;
         startY = e.clientY;
 
-        // Add movement handlers
         document.addEventListener("mousemove", elementDrag);
         document.addEventListener("mouseup", closeDragElement);
       }
@@ -288,11 +252,9 @@
       if (!isDragging) return;
       e.preventDefault();
 
-      // Calculate movement delta
       const deltaX = e.clientX - startX;
       const deltaY = e.clientY - startY;
 
-      // Update modal position
       modal.style.left = initialLeft + deltaX + "px";
       modal.style.top = initialTop + deltaY + "px";
     }
@@ -328,7 +290,6 @@
         function resize(e) {
           const newWidth = startWidth + e.clientX - startX;
           const newHeight = startHeight + e.clientY - startY;
-
           container.style.width = `${Math.max(400, newWidth)}px`;
           container.style.height = `${Math.max(300, newHeight)}px`;
         }
@@ -344,9 +305,6 @@
     });
   }
 
-  // ——————————————————————————————————————————————
-  // Open / Close & Data Logic
-  // ——————————————————————————————————————————————
   function closeModal() {
     const m = document.getElementById("custom-modal");
     if (m) m.classList.add("hidden");
@@ -363,34 +321,35 @@
     submit.disabled = true;
     modal.classList.remove("hidden");
 
-    // Reset modal size
     container.style.width = "";
     container.style.height = "";
     isMinimized = false;
 
-    // Get contact data
     const parts = location.pathname.split("/");
     const idx = parts.indexOf("conversations");
     const convId = parts[idx + 2];
     const headers = getAuthHeaders();
-    const convRes = await fetch(
-      `https://backend.leadconnectorhq.com/conversations/${convId}`,
-      { headers }
-    );
-    const contactId = (await convRes.json()).contactId;
-    const contRes = await fetch(
-      `https://backend.leadconnectorhq.com/contacts/${contactId}`,
-      { headers }
-    );
-    currentCustomFields = (await contRes.json()).contact.customFields || [];
 
-    // Load form
-    content.innerHTML = generateFormHTML(currentCustomFields);
-    submit.disabled = false;
-    submit.dataset.contactId = contactId;
+    try {
+      const convRes = await fetch(
+        `https://backend.leadconnectorhq.com/conversations/${convId}`,
+        { headers }
+      );
+      const contactId = (await convRes.json()).contactId;
+      const contRes = await fetch(
+        `https://backend.leadconnectorhq.com/contacts/${contactId}`,
+        { headers }
+      );
+      currentCustomFields = (await contRes.json()).contact.customFields || [];
 
-    // Position modal after content is loaded
-    positionModal();
+      content.innerHTML = generateFormHTML(currentCustomFields);
+      submit.disabled = false;
+      submit.dataset.contactId = contactId;
+      positionModal();
+    } catch (error) {
+      content.innerHTML = `<p class="text-center text-red-500">Error loading data</p>`;
+      console.error("Error opening modal:", error);
+    }
   }
 
   function minimizeModal() {
@@ -402,31 +361,26 @@
     );
 
     if (!isMinimized) {
-      // Store original content
       originalFormContent = content.innerHTML;
-
-      // Switch to minimized view
       container.style.width = "320px";
       container.style.height = "auto";
 
-      // Position at top center
       const minimizedWidth = 320;
       const left = (window.innerWidth - minimizedWidth) / 2;
       modal.style.left = left + "px";
       modal.style.top = "20px";
 
-      // Hide buttons and show minimized content
       buttons.classList.add("hidden");
-
-      // Create minimized content with current values
       content.innerHTML = generateMinimizedContent();
 
       isMinimized = true;
       document.getElementById("custom-modal-minimize").innerHTML = `
-       <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-expand-icon lucide-expand"><path d="m15 15 6 6"/><path d="m15 9 6-6"/><path d="M21 16v5h-5"/><path d="M21 8V3h-5"/><path d="M3 16v5h5"/><path d="m3 21 6-6"/><path d="M3 8V3h5"/><path d="M9 9 3 3"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m15 15 6 6"/><path d="m15 9 6-6"/><path d="M21 16v5h-5"/><path d="M21 8V3h-5"/>
+          <path d="M3 16v5h5"/><path d="m3 21 6-6"/><path d="M3 8V3h5"/><path d="M9 9 3 3"/>
+        </svg>
       `;
     } else {
-      // Restore to full view
       container.style.width = "";
       container.style.height = "";
       buttons.classList.remove("hidden");
@@ -437,8 +391,6 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14" />
         </svg>
       `;
-
-      // Re-center modal
       positionModal();
     }
   }
@@ -447,13 +399,13 @@
     const modal = document.getElementById("custom-modal");
     const container = document.getElementById("custom-modal-container");
 
-    // Calculate centered position
+    if (!modal || !container) return;
+
     const containerWidth = container.offsetWidth;
     const containerHeight = container.offsetHeight;
     const left = (window.innerWidth - containerWidth) / 2;
     const top = (window.innerHeight - containerHeight) / 2;
 
-    // Apply position
     modal.style.left = Math.max(0, left) + "px";
     modal.style.top = Math.max(0, top) + "px";
   }
@@ -464,19 +416,18 @@
     const contactId = submit.dataset.contactId;
     const headers = getAuthHeaders();
     const form = document.getElementById("custom-update-form");
+    const fieldMap = getFieldMap();
 
-    // Create field update mapping
+    if (!fieldMap) return;
+
     const updates = [];
     const formData = new FormData(form);
 
     for (const [fieldName, value] of formData.entries()) {
       if (!value) continue;
-
-      // Get field ID from our mapping
       const fieldId = fieldMap[fieldName];
       if (!fieldId) continue;
 
-      // Convert numbers
       let processedValue = value;
       if (["offerAmount", "mileage", "year"].includes(fieldName)) {
         processedValue = Number(value);
@@ -490,44 +441,153 @@
 
     if (!updates.length) return alert("No changes to save");
 
-    await fetch(`https://backend.leadconnectorhq.com/contacts/${contactId}`, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify({
-        customFields: updates,
-        dirty: true,
-        skipTrigger: false,
-      }),
-    });
-    alert("✅ Updated successfully");
-    closeModal();
+    try {
+      await fetch(`https://backend.leadconnectorhq.com/contacts/${contactId}`, {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({
+          customFields: updates,
+          dirty: true,
+          skipTrigger: false,
+        }),
+      });
+      alert("✅ Updated successfully");
+      closeModal();
+    } catch (error) {
+      alert("Error updating contact");
+      console.error("Update error:", error);
+    }
   }
 
-  // ——————————————————————————————————————————————
-  // Init
-  // ——————————————————————————————————————————————
-  try {
-    // Create modal immediately
-    createModal();
+  async function createDetailsButton() {
+    try {
+      const btnGroup = await waitFor(".button-group.flex");
 
-    // Create details button in button group
-    await createDetailsButton();
+      if (!document.getElementById("details-btn")) {
+        const buttons = btnGroup.children;
+        const deleteBtn = buttons[buttons.length - 2];
 
-    // Add event listeners
-    document.getElementById("details-btn").addEventListener("click", openModal);
+        const detailsBtn = document.createElement("button");
+        detailsBtn.id = "details-btn";
+        detailsBtn.className =
+          "flex items-center px-2.5 py-1 border border-gray-300 border-l-0";
+        detailsBtn.title = "Vehicle Details";
+        detailsBtn.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" 
+               viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 100 20 10 10 0 000-20z" />
+          </svg>`;
+
+        btnGroup.insertBefore(detailsBtn, deleteBtn);
+        detailsBtn.addEventListener("click", openModal);
+      }
+    } catch (err) {
+      console.error("Error creating details button:", err);
+    }
+  }
+
+  function setupEventListeners() {
+    // Remove existing listeners first to prevent duplicates
+    const oldDetailsBtn = document.getElementById("details-btn");
+    if (oldDetailsBtn) {
+      oldDetailsBtn.replaceWith(oldDetailsBtn.cloneNode(true));
+    }
+
+    document
+      .getElementById("details-btn")
+      ?.addEventListener("click", openModal);
     document
       .getElementById("custom-modal-close")
-      .addEventListener("click", closeModal);
+      ?.addEventListener("click", closeModal);
     document
       .getElementById("custom-modal-minimize")
-      .addEventListener("click", minimizeModal);
+      ?.addEventListener("click", minimizeModal);
     document
       .getElementById("custom-modal-cancel")
-      .addEventListener("click", closeModal);
+      ?.addEventListener("click", closeModal);
     document
       .getElementById("custom-modal-submit")
-      .addEventListener("click", updateContact);
-  } catch (err) {
-    console.error("Custom Tab init failed:", err);
+      ?.addEventListener("click", updateContact);
   }
+
+  function initPage() {
+    if (!isConversationPage()) return;
+
+    const fieldMap = getFieldMap();
+    if (!fieldMap) return;
+
+    createModal();
+    createDetailsButton();
+    setupEventListeners();
+    isInitialized = true;
+  }
+
+  function cleanupPage() {
+    const detailsBtn = document.getElementById("details-btn");
+    if (detailsBtn) detailsBtn.remove();
+
+    const modal = document.getElementById("custom-modal");
+    if (modal) modal.remove();
+
+    isInitialized = false;
+    isMinimized = false;
+    originalFormContent = null;
+  }
+
+  // SPA Navigation Handling
+  function handleSPANavigation() {
+    if (isConversationPage()) {
+      if (!isInitialized) {
+        initPage();
+      }
+    } else {
+      if (isInitialized) {
+        cleanupPage();
+      }
+    }
+  }
+
+  // Initialize MutationObserver for SPA navigation
+  function initSPAObserver() {
+    if (observer) observer.disconnect();
+
+    observer = new MutationObserver(() => {
+      handleSPANavigation();
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: false,
+      characterData: false,
+    });
+  }
+
+  // History state change handling
+  function initHistoryObserver() {
+    const pushState = history.pushState;
+    history.pushState = function () {
+      pushState.apply(history, arguments);
+      handleSPANavigation();
+    };
+
+    const replaceState = history.replaceState;
+    history.replaceState = function () {
+      replaceState.apply(history, arguments);
+      handleSPANavigation();
+    };
+
+    window.addEventListener("popstate", handleSPANavigation);
+  }
+
+  // Initialization
+  function init() {
+    initSPAObserver();
+    initHistoryObserver();
+    handleSPANavigation();
+  }
+
+  // Start everything
+  init();
 })();
