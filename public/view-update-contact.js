@@ -13,7 +13,7 @@
       snooze: "lFH0oXwb1HRVHRTVEV0b",
       followUp: "51r5VSCTYc0XxEHD8N3T",
     },
-    // Nw2jglUnVxhwl6AwSb9x: {
+    // "Nw2jglUnVxhwl6AwSb9x": {
     //   offerAmount: "lXNMbvMZxiBwqmup3kCL",
     //   mileage: "tNs29SvYTZsFBuDOuEam",
     //   status: "sWqHCvduvLnvpO89Dweo",
@@ -23,8 +23,8 @@
     //   offerLink: "vh93I68LAQxEmdTyLK4s",
     //   vin: "OliCYQB3ISqtmjR9HLlF",
     //   snooze: "e66nNGVBWFKvZwGmzD10",
-    //   followUp: "XeNHeoXErWXWDH7NJs1S",
-    // },
+    //   followUp: "XeNHeoXErWXWDH7NJs1S"
+    // }
   };
 
   // Get current location ID
@@ -42,6 +42,7 @@
   let originalFormContent = null;
   let isDragging = false;
   let startX, startY, initialLeft, initialTop;
+  let currentCustomFields = []; // Store the current custom fields
 
   // ——————————————————————————————————————————————
   // Helpers
@@ -137,12 +138,12 @@
       </form>`;
   }
 
-  function generateMinimizedContent(customFields) {
+  function generateMinimizedContent() {
     const getValue = (fieldName) => {
       const fieldId = fieldMap[fieldName];
       if (!fieldId) return "N/A";
 
-      const field = customFields.find((cf) => cf.id === fieldId);
+      const field = currentCustomFields.find((cf) => cf.id === fieldId);
       return field ? field.value || "N/A" : "N/A";
     };
 
@@ -352,6 +353,46 @@
     isMinimized = false;
   }
 
+  async function openModal() {
+    const content = document.getElementById("custom-modal-content");
+    const submit = document.getElementById("custom-modal-submit");
+    const modal = document.getElementById("custom-modal");
+    const container = document.getElementById("custom-modal-container");
+
+    content.innerHTML = '<p class="text-center">Loading…</p>';
+    submit.disabled = true;
+    modal.classList.remove("hidden");
+
+    // Reset modal size
+    container.style.width = "";
+    container.style.height = "";
+    isMinimized = false;
+
+    // Get contact data
+    const parts = location.pathname.split("/");
+    const idx = parts.indexOf("conversations");
+    const convId = parts[idx + 2];
+    const headers = getAuthHeaders();
+    const convRes = await fetch(
+      `https://backend.leadconnectorhq.com/conversations/${convId}`,
+      { headers }
+    );
+    const contactId = (await convRes.json()).contactId;
+    const contRes = await fetch(
+      `https://backend.leadconnectorhq.com/contacts/${contactId}`,
+      { headers }
+    );
+    currentCustomFields = (await contRes.json()).contact.customFields || [];
+
+    // Load form
+    content.innerHTML = generateFormHTML(currentCustomFields);
+    submit.disabled = false;
+    submit.dataset.contactId = contactId;
+
+    // Position modal after content is loaded
+    positionModal();
+  }
+
   function minimizeModal() {
     const modal = document.getElementById("custom-modal");
     const container = document.getElementById("custom-modal-container");
@@ -377,19 +418,8 @@
       // Hide buttons and show minimized content
       buttons.classList.add("hidden");
 
-      // Create minimized content
-      const fields = Array.from(
-        document.querySelectorAll(
-          "#custom-update-form input, #custom-update-form select"
-        )
-      ).reduce((acc, el) => {
-        acc[el.name] = el.value;
-        return acc;
-      }, {});
-
-      content.innerHTML = generateMinimizedContent(
-        Object.entries(fields).map(([name, value]) => ({ name, value }))
-      );
+      // Create minimized content with current values
+      content.innerHTML = generateMinimizedContent();
 
       isMinimized = true;
       document.getElementById("custom-modal-minimize").innerHTML = `
@@ -426,46 +456,6 @@
     // Apply position
     modal.style.left = Math.max(0, left) + "px";
     modal.style.top = Math.max(0, top) + "px";
-  }
-
-  async function openModal() {
-    const content = document.getElementById("custom-modal-content");
-    const submit = document.getElementById("custom-modal-submit");
-    const modal = document.getElementById("custom-modal");
-    const container = document.getElementById("custom-modal-container");
-
-    content.innerHTML = '<p class="text-center">Loading…</p>';
-    submit.disabled = true;
-    modal.classList.remove("hidden");
-
-    // Reset modal size
-    container.style.width = "";
-    container.style.height = "";
-    isMinimized = false;
-
-    // Get contact data
-    const parts = location.pathname.split("/");
-    const idx = parts.indexOf("conversations");
-    const convId = parts[idx + 2];
-    const headers = getAuthHeaders();
-    const convRes = await fetch(
-      `https://backend.leadconnectorhq.com/conversations/${convId}`,
-      { headers }
-    );
-    const contactId = (await convRes.json()).contactId;
-    const contRes = await fetch(
-      `https://backend.leadconnectorhq.com/contacts/${contactId}`,
-      { headers }
-    );
-    const customFields = (await contRes.json()).contact.customFields || [];
-
-    // Load form
-    content.innerHTML = generateFormHTML(customFields);
-    submit.disabled = false;
-    submit.dataset.contactId = contactId;
-
-    // Position modal after content is loaded
-    positionModal();
   }
 
   async function updateContact(e) {

@@ -1,14 +1,8 @@
 (function () {
   // Location configuration with snooze field IDs
   const LOCATION_CONFIG = {
-    "5p53YW7HzzBidwP4ANYi": {
-      snoozeFieldId: "lFH0oXwb1HRVHRTVEV0b",
-      apiBase: "https://backend.leadconnectorhq.com",
-    },
-    // Nw2jglUnVxhwl6AwSb9x: {
-    //   snoozeFieldId: "e66nNGVBWFKvZwGmzD10",
-    //   apiBase: "https://backend.leadconnectorhq.com",
-    // },
+    "5p53YW7HzzBidwP4ANYi": "lFH0oXwb1HRVHRTVEV0b",
+    // "Nw2jglUnVxhwl6AwSb9x": "e66nNGVBWFKvZwGmzD10",
   };
 
   // Get current location ID
@@ -21,7 +15,8 @@
     return;
   }
 
-  const { snoozeFieldId, apiBase } = LOCATION_CONFIG[currentLocation];
+  const FIELD_ID = LOCATION_CONFIG[currentLocation];
+  const API_BASE = "https://backend.leadconnectorhq.com";
   console.log("[SNOOZE] Initializing for location:", currentLocation);
 
   // Helper to await an element
@@ -56,33 +51,23 @@
     });
   }
 
-  // Fetch contact ID from conversation
-  async function getContactId() {
-    const parts = window.location.pathname.split("/");
-    const convId = parts[parts.lastIndexOf("conversations") + 1];
-    const headers = await getHeaders();
-    const convRes = await fetch(`${apiBase}/conversations/${convId}`, {
-      headers,
-    });
-    return (await convRes.json()).contactId;
-  }
-
-  // Build & inject button + modal
-  async function initSnoozeButton() {
+  // Main initialization wrapped in async IIFE
+  (async function () {
     try {
       const btnGroup = await waitFor(".button-group.flex");
       console.log("[SNOOZE] Found button group");
 
-      // Create Snooze button if not exists
+      // Avoid double-inject
       if (!document.getElementById("snooze-btn")) {
+        // Get the second last button (which should be the delete button)
         const buttons = btnGroup.children;
         const deleteBtn = buttons[buttons.length - 2];
 
+        // Create Snooze button - PRESERVING ORIGINAL STYLING
         const snoozeBtn = document.createElement("button");
         snoozeBtn.id = "snooze-btn";
         snoozeBtn.className =
           "flex items-center px-2.5 py-1 border border-gray-300 border-l-0";
-        snoozeBtn.title = "Set Snooze Date";
         snoozeBtn.innerHTML = `
           <svg width="20" height="20" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path d="M10 5v5h4.5M10 2.5a7.5 7.5 0 110 15 7.5 7.5 0 010-15z"
@@ -90,119 +75,125 @@
                   stroke-linecap="round" stroke-linejoin="round"/>
           </svg>`;
         btnGroup.insertBefore(snoozeBtn, deleteBtn);
-        console.log("[SNOOZE] Button inserted");
+        console.log("[SNOOZE] Snooze button inserted");
       }
 
-      // Create modal if not exists
+      // Inject modal once - PRESERVING ORIGINAL STYLING
       if (!document.getElementById("snooze-modal")) {
         const modal = document.createElement("div");
         modal.id = "snooze-modal";
-        modal.className =
-          "fixed inset-0 bg-black bg-opacity-50 z-[9999] hidden items-center justify-center";
+        Object.assign(modal.style, {
+          display: "none",
+          position: "fixed",
+          inset: "0",
+          background: "rgba(0,0,0,0.5)",
+          zIndex: "9999",
+          alignItems: "center",
+          justifyContent: "center",
+        });
         modal.innerHTML = `
-          <div class="modal-content bg-white rounded-lg shadow-xl w-80 relative">
+          <div class="modal-content bg-white rounded-lg shadow-xl w-80" style="position:relative">
             <div class="p-6">
-              <h3 class="text-lg font-medium text-gray-900 mb-4">Snooze Until</h3>
+              <h3 class="text-lg font-medium text-gray-900 mb-4">Snooze For</h3>
               <input type="date" id="snooze-time"
                      class="w-full px-3 py-2 border border-gray-300 rounded-md mb-4"/>
               <div class="flex justify-end space-x-3">
                 <button id="cancel-snooze"
                         class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md">
-                  Cancel
+                  Close
                 </button>
                 <button id="submit-snooze"
                         class="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md">
-                  Set Snooze
+                  Submit
                 </button>
               </div>
             </div>
           </div>`;
         document.body.appendChild(modal);
-        console.log("[SNOOZE] Modal created");
+        console.log("[SNOOZE] Modal appended");
       }
 
-      return true;
-    } catch (err) {
-      console.error("[SNOOZE] Initialization error:", err);
-      return false;
-    }
-  }
+      // Grab refs
+      const modal = document.getElementById("snooze-modal");
+      const dateInput = modal.querySelector("#snooze-time");
+      const cancelBtn = modal.querySelector("#cancel-snooze");
+      const submitBtn = modal.querySelector("#submit-snooze");
 
-  // Main execution
-  (async function main() {
-    if (!(await initSnoozeButton())) return;
+      // Show/hide helpers
+      const openModal = () => (modal.style.display = "flex");
+      const closeModal = () => (modal.style.display = "none");
 
-    const modal = document.getElementById("snooze-modal");
-    const dateInput = document.getElementById("snooze-time");
-    const cancelBtn = document.getElementById("cancel-snooze");
-    const submitBtn = document.getElementById("submit-snooze");
+      // Prevent backdrop clicks from closing when clicking inside content
+      modal
+        .querySelector(".modal-content")
+        .addEventListener("click", (e) => e.stopPropagation());
+      modal.addEventListener("click", closeModal);
+      cancelBtn.addEventListener("click", closeModal);
 
-    // Modal control functions
-    const openModal = () => modal.classList.remove("hidden");
-    const closeModal = () => modal.classList.add("hidden");
+      // Button click: fetch contact, prefill date, open modal
+      document
+        .getElementById("snooze-btn")
+        .addEventListener("click", async () => {
+          try {
+            const parts = window.location.pathname.split("/");
+            const convId = parts[parts.lastIndexOf("conversations") + 1];
+            const headers = await getHeaders();
+            const convRes = await fetch(`${API_BASE}/conversations/${convId}`, {
+              headers,
+            });
+            const contactId = (await convRes.json()).contactId;
+            const contactRes = await fetch(
+              `${API_BASE}/contacts/${contactId}`,
+              {
+                headers,
+              }
+            );
+            const customFields =
+              (await contactRes.json()).contact.customFields || [];
+            const existing = customFields.find((f) => f.id === FIELD_ID);
 
-    // Setup modal behavior
-    modal.addEventListener("click", (e) => {
-      if (e.target === modal) closeModal();
-    });
-    cancelBtn.addEventListener("click", closeModal);
-
-    // Snooze button click handler
-    document
-      .getElementById("snooze-btn")
-      .addEventListener("click", async () => {
-        try {
-          const contactId = await getContactId();
-          const headers = await getHeaders();
-          const contactRes = await fetch(`${apiBase}/contacts/${contactId}`, {
-            headers,
-          });
-          const customFields =
-            (await contactRes.json()).contact.customFields || [];
-          const existing = customFields.find((f) => f.id === snoozeFieldId);
-
-          // Set min date to tomorrow
-          const tomorrow = new Date();
-          tomorrow.setDate(tomorrow.getDate() + 1);
-          dateInput.min = tomorrow.toISOString().split("T")[0];
-
-          // Set existing value or clear
-          dateInput.value = existing?.value || "";
-          openModal();
-        } catch (err) {
-          console.error("[SNOOZE] Open error:", err);
-          alert("Failed to open snooze modal:\n" + err.message);
-        }
-      });
-
-    // Submit handler
-    submitBtn.addEventListener("click", async () => {
-      if (!dateInput.value) return alert("Please select a date");
-
-      try {
-        const contactId = await getContactId();
-        const headers = await getHeaders();
-
-        const payload = {
-          customFields: [{ id: snoozeFieldId, field_value: dateInput.value }],
-          dirty: true,
-          skipTrigger: false,
-        };
-
-        const res = await fetch(`${apiBase}/contacts/${contactId}`, {
-          method: "PUT",
-          headers,
-          body: JSON.stringify(payload),
+            dateInput.value = existing?.value || "";
+            openModal();
+          } catch (err) {
+            console.error("[SNOOZE] Open error:", err);
+            alert("Failed to open snooze modal:\n" + err.message);
+          }
         });
 
-        if (!res.ok) throw new Error("API responded with " + res.status);
+      // Submit click: update custom field
+      submitBtn.addEventListener("click", async () => {
+        if (!dateInput.value) return alert("Please select a date");
+        try {
+          // reuse convId fetch
+          const parts = window.location.pathname.split("/");
+          const convId = parts[parts.lastIndexOf("conversations") + 1];
+          const headers = await getHeaders();
+          const convRes = await fetch(`${API_BASE}/conversations/${convId}`, {
+            headers,
+          });
+          const contactId = (await convRes.json()).contactId;
 
-        alert("✅ Snooze date set successfully!");
-        closeModal();
-      } catch (err) {
-        console.error("[SNOOZE] Save error:", err);
-        alert("Failed to save snooze date:\n" + err.message);
-      }
-    });
+          const payload = {
+            customFields: [{ id: FIELD_ID, field_value: dateInput.value }],
+            dirty: true,
+            skipTrigger: false,
+          };
+          const res = await fetch(`${API_BASE}/contacts/${contactId}`, {
+            method: "PUT",
+            headers,
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) throw new Error("Status " + res.status);
+
+          alert("✅ Snooze set!");
+          closeModal();
+        } catch (err) {
+          console.error("[SNOOZE] Save error:", err);
+          alert("Failed to save snooze:\n" + err.message);
+        }
+      });
+    } catch (err) {
+      console.error("[SNOOZE] Initialization error:", err);
+    }
   })();
 })();
