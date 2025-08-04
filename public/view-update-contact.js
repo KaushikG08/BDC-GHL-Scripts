@@ -1,5 +1,41 @@
 (async function () {
-  const EXPECTED_LOCATION = ["5p53YW7HzzBidwP4ANYi"];
+  // Field configuration for each location
+  const LOCATION_FIELDS = {
+    "5p53YW7HzzBidwP4ANYi": {
+      offerAmount: "brbb2yPv8zffJT3zTD2l",
+      mileage: "o0d2EXUOJ9N20I3buVZP",
+      status: "iugb9cY7AfbFhjhmnvCB",
+      year: "kBhUtPhv3paBGrIAL4gF",
+      make: "mr2HEGPN6AX4qk702fkm",
+      model: "zp198kx2ZIodQLYMrlnw",
+      offerLink: "FpkQ8dnJd7Y0rvSDDy0U",
+      vin: "0HaSUns32ObBwmJ8ripD",
+      snooze: "lFH0oXwb1HRVHRTVEV0b",
+      followUp: "51r5VSCTYc0XxEHD8N3T",
+    },
+    // Nw2jglUnVxhwl6AwSb9x: {
+    //   offerAmount: "lXNMbvMZxiBwqmup3kCL",
+    //   mileage: "tNs29SvYTZsFBuDOuEam",
+    //   status: "sWqHCvduvLnvpO89Dweo",
+    //   year: "rHQxaOGfqAZvLJzLcL6z",
+    //   make: "RWVyWumf6F97BBO6n0sU",
+    //   model: "rZm8KJOpNbB4Y2gUuO1E",
+    //   offerLink: "vh93I68LAQxEmdTyLK4s",
+    //   vin: "OliCYQB3ISqtmjR9HLlF",
+    //   snooze: "e66nNGVBWFKvZwGmzD10",
+    //   followUp: "XeNHeoXErWXWDH7NJs1S",
+    // },
+  };
+
+  // Get current location ID
+  const locMatch = location.pathname.match(/\/v2\/location\/([^/]+)/);
+  const currentLocation = locMatch ? locMatch[1] : null;
+
+  // Exit if not a supported location
+  if (!currentLocation || !LOCATION_FIELDS[currentLocation]) return;
+
+  // Get field map for current location
+  const fieldMap = LOCATION_FIELDS[currentLocation];
 
   // Track modal state
   let isMinimized = false;
@@ -41,101 +77,72 @@
   }
 
   function generateFormHTML(customFields) {
-    const fields = [
+    const fieldDefinitions = [
+      { name: "offerAmount", label: "Offer Amount (USD)", type: "number" },
+      { name: "mileage", label: "Mileage", type: "number" },
       {
-        id: "brbb2yPv8zffJT3zTD2l",
-        name: "offerAmount",
-        label: "Offer Amount (USD)",
-        type: "number",
-      },
-      {
-        id: "o0d2EXUOJ9N20I3buVZP",
-        name: "mileage",
-        label: "Mileage",
-        type: "number",
-      },
-      {
-        id: "iugb9cY7AfbFhjhmnvCB",
         name: "status",
         label: "Lost/Win Status",
         type: "select",
         options: ["open", "lost", "win"],
       },
-      {
-        id: "kBhUtPhv3paBGrIAL4gF",
-        name: "year",
-        label: "Year",
-        type: "number",
-      },
-      { id: "mr2HEGPN6AX4qk702fkm", name: "make", label: "Make", type: "text" },
-      {
-        id: "zp198kx2ZIodQLYMrlnw",
-        name: "model",
-        label: "Model",
-        type: "text",
-      },
-      {
-        id: "FpkQ8dnJd7Y0rvSDDy0U",
-        name: "offerLink",
-        label: "Offer Link",
-        type: "text",
-      },
-      { id: "0HaSUns32ObBwmJ8ripD", name: "vin", label: "VIN", type: "text" },
-      {
-        id: "tWNbOqKNRjKkAl8Kspcp",
-        name: "vehicle",
-        label: "Vehicle of Interest",
-        type: "text",
-      },
-      {
-        id: "lFH0oXwb1HRVHRTVEV0b",
-        name: "snooze",
-        label: "Snooze",
-        type: "date",
-      },
-      {
-        id: "51r5VSCTYc0XxEHD8N3T",
-        name: "followUp",
-        label: "Follow Up Call",
-        type: "date",
-      },
+      { name: "year", label: "Year", type: "number" },
+      { name: "make", label: "Make", type: "text" },
+      { name: "model", label: "Model", type: "text" },
+      { name: "offerLink", label: "Offer Link", type: "text" },
+      { name: "vin", label: "VIN", type: "text" },
+      { name: "snooze", label: "Snooze", type: "date" },
+      { name: "followUp", label: "Follow Up Call", type: "date" },
     ];
 
     return `
       <form id="custom-update-form" class="grid grid-cols-2 gap-4">
-        ${fields
-          .map((f) => {
-            const existing = customFields.find((cf) => cf.id === f.id);
-            const val = existing?.value || "";
-            const cls =
+        ${fieldDefinitions
+          .map((field) => {
+            // Find existing value from custom fields
+            const existing = customFields.find(
+              (cf) => cf.id === fieldMap[field.name]
+            );
+            const value = existing?.value || "";
+            const fieldId = fieldMap[field.name];
+            const inputClass =
               "border border-gray-300 rounded w-full p-2 text-sm mt-1";
-            if (f.type === "select") {
+
+            // Skip if field not mapped for this location
+            if (!fieldId) return "";
+
+            if (field.type === "select") {
               return `<div class="space-y-1">
-              <label class="text-sm text-gray-600">${f.label}</label>
-              <select name="${f.name}" class="${cls}">
-                ${f.options
-                  .map(
-                    (o) =>
-                      `<option ${
-                        o === val ? "selected" : ""
-                      } value="${o}">${o}</option>`
-                  )
-                  .join("")}
-              </select>
-            </div>`;
+                <label class="text-sm text-gray-600">${field.label}</label>
+                <select name="${field.name}" class="${inputClass}">
+                  ${field.options
+                    .map(
+                      (o) =>
+                        `<option ${
+                          o === value ? "selected" : ""
+                        } value="${o}">${o}</option>`
+                    )
+                    .join("")}
+                </select>
+              </div>`;
             }
+
             return `<div class="space-y-1">
-            <label class="text-sm text-gray-600">${f.label}</label>
-            <input type="${f.type}" name="${f.name}" value="${val}" class="${cls}" />
-          </div>`;
+              <label class="text-sm text-gray-600">${field.label}</label>
+              <input type="${field.type}" name="${field.name}" 
+                     value="${value}" class="${inputClass}" />
+            </div>`;
           })
           .join("")}
       </form>`;
   }
 
   function generateMinimizedContent(customFields) {
-    const getValue = (name) => {
-      const field = customFields.find((cf) => cf.name === name);
+    const getValue = (fieldName) => {
+      const fieldId = fieldMap[fieldName];
+      if (!fieldId) return "N/A";
+
+      const field = customFields.find((cf) => cf.id === fieldId);
       return field ? field.value || "N/A" : "N/A";
     };
 
@@ -162,9 +169,6 @@
   // ——————————————————————————————————————————————
   // UI Builders
   // ——————————————————————————————————————————————
-  // REMOVED createCustomTab function - no longer needed
-
-  // Create details button in button group
   async function createDetailsButton() {
     try {
       const btnGroup = await waitFor(".button-group.flex");
@@ -254,12 +258,10 @@
     setupModalResize();
   }
 
-  // Robust drag implementation using event delegation
   function setupModalDrag() {
     const modal = document.getElementById("custom-modal");
     if (!modal) return;
 
-    // Use event delegation for drag handle
     modal.addEventListener("mousedown", function (e) {
       const dragHandle = e.target.closest("#modal-drag-handle");
       if (dragHandle) {
@@ -306,7 +308,6 @@
     const container = document.getElementById("custom-modal-container");
     if (!modal || !container) return;
 
-    // Use event delegation for resize handle
     modal.addEventListener("mousedown", function (e) {
       const resizeHandle = e.target.closest(".resize-handle");
       if (resizeHandle) {
@@ -473,37 +474,37 @@
     const contactId = submit.dataset.contactId;
     const headers = getAuthHeaders();
     const form = document.getElementById("custom-update-form");
-    const entries = Array.from(new FormData(form).entries())
-      .filter(([, v]) => v !== "")
-      .map(([name, val]) => {
-        const cfg = [
-          { id: "brbb2yPv8zffJT3zTD2l", name: "offerAmount" },
-          { id: "o0d2EXUOJ9N20I3buVZP", name: "mileage" },
-          { id: "iugb9cY7AfbFhjhmnvCB", name: "status" },
-          { id: "kBhUtPhv3paBGrIAL4gF", name: "year" },
-          { id: "mr2HEGPN6AX4qk702fkm", name: "make" },
-          { id: "zp198kx2ZIodQLYMrlnw", name: "model" },
-          { id: "FpkQ8dnJd7Y0rvSDDy0U", name: "offerLink" },
-          { id: "0HaSUns32ObBwmJ8ripD", name: "vin" },
-          { id: "tWNbOqKNRjKkAl8Kspcp", name: "vehicle" },
-          { id: "lFH0oXwb1HRVHRTVEV0b", name: "snooze" },
-          { id: "51r5VSCTYc0XxEHD8N3T", name: "followUp" },
-        ].find((f) => f.name === name);
-        if (!cfg) return null;
-        return {
-          id: cfg.id,
-          field_value: cfg.type === "number" ? Number(val) : val,
-        };
-      })
-      .filter(Boolean);
 
-    if (!entries.length) return alert("No changes to save");
+    // Create field update mapping
+    const updates = [];
+    const formData = new FormData(form);
+
+    for (const [fieldName, value] of formData.entries()) {
+      if (!value) continue;
+
+      // Get field ID from our mapping
+      const fieldId = fieldMap[fieldName];
+      if (!fieldId) continue;
+
+      // Convert numbers
+      let processedValue = value;
+      if (["offerAmount", "mileage", "year"].includes(fieldName)) {
+        processedValue = Number(value);
+      }
+
+      updates.push({
+        id: fieldId,
+        field_value: processedValue,
+      });
+    }
+
+    if (!updates.length) return alert("No changes to save");
 
     await fetch(`https://backend.leadconnectorhq.com/contacts/${contactId}`, {
       method: "PUT",
       headers,
       body: JSON.stringify({
-        customFields: entries,
+        customFields: updates,
         dirty: true,
         skipTrigger: false,
       }),
@@ -516,10 +517,6 @@
   // Init
   // ——————————————————————————————————————————————
   try {
-    // exit if wrong location
-    const loc = location.pathname.match(/\/v2\/location\/([^/]+)/)?.[1];
-    if (!EXPECTED_LOCATION.includes(loc)) return;
-
     // Create modal immediately
     createModal();
 
