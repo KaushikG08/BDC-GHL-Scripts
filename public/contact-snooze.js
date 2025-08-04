@@ -1,8 +1,8 @@
-(async function () {
+(function () {
   // Location configuration with snooze field IDs
   const LOCATION_CONFIG = {
     "5p53YW7HzzBidwP4ANYi": "lFH0oXwb1HRVHRTVEV0b",
-    // "Nw2jglUnVxhwl6AwSb9x": "e66nNGVBWFKvZwGmzD10"
+    // "Nw2jglUnVxhwl6AwSb9x": "e66nNGVBWFKvZwGmzD10",
   };
 
   // State variables
@@ -10,6 +10,15 @@
   let observer = null;
   let currentLocation = null;
   let currentFieldId = null;
+
+  // Store event handlers for proper cleanup
+  let eventHandlers = {
+    snoozeBtn: null,
+    modal: null,
+    modalContent: null,
+    cancelBtn: null,
+    submitBtn: null,
+  };
 
   // Helper functions
   function isConversationPage() {
@@ -143,46 +152,69 @@
     }
   }
 
+  // MODAL CONTROL FUNCTIONS
+  function openSnoozeModal() {
+    const modal = document.getElementById("snooze-modal");
+    if (modal) modal.style.display = "flex";
+  }
+
+  function closeSnoozeModal() {
+    const modal = document.getElementById("snooze-modal");
+    if (modal) modal.style.display = "none";
+  }
+
   function setupSnoozeModalHandlers() {
     const modal = document.getElementById("snooze-modal");
     const dateInput = document.getElementById("snooze-time");
     const cancelBtn = document.getElementById("cancel-snooze");
     const submitBtn = document.getElementById("submit-snooze");
+    const snoozeBtn = document.getElementById("snooze-btn");
 
-    // PRESERVING YOUR ORIGINAL MODAL CONTROL FUNCTIONS
-    const openModal = () => (modal.style.display = "flex");
-    const closeModal = () => (modal.style.display = "none");
+    // Clean up any existing event listeners first
+    if (eventHandlers.modalContent) {
+      modal
+        .querySelector(".modal-content")
+        .removeEventListener("click", eventHandlers.modalContent);
+    }
+    if (eventHandlers.modal) {
+      modal.removeEventListener("click", eventHandlers.modal);
+    }
+    if (eventHandlers.cancelBtn) {
+      cancelBtn.removeEventListener("click", eventHandlers.cancelBtn);
+    }
+    if (eventHandlers.snoozeBtn) {
+      snoozeBtn.removeEventListener("click", eventHandlers.snoozeBtn);
+    }
+    if (eventHandlers.submitBtn) {
+      submitBtn.removeEventListener("click", eventHandlers.submitBtn);
+    }
 
-    // PRESERVING YOUR ORIGINAL EVENT HANDLERS
-    modal
-      .querySelector(".modal-content")
-      .addEventListener("click", (e) => e.stopPropagation());
-    modal.addEventListener("click", closeModal);
-    cancelBtn.addEventListener("click", closeModal);
+    // Create new handlers
+    eventHandlers.modalContent = (e) => e.stopPropagation();
+    eventHandlers.modal = () => closeSnoozeModal();
+    eventHandlers.cancelBtn = () => closeSnoozeModal();
 
-    document
-      .getElementById("snooze-btn")
-      .addEventListener("click", async () => {
-        try {
-          const contactId = await getContactId();
-          const headers = await getHeaders();
-          const contactRes = await fetch(
-            `https://backend.leadconnectorhq.com/contacts/${contactId}`,
-            { headers }
-          );
-          const customFields =
-            (await contactRes.json()).contact.customFields || [];
-          const existing = customFields.find((f) => f.id === currentFieldId);
+    eventHandlers.snoozeBtn = async () => {
+      try {
+        const contactId = await getContactId();
+        const headers = await getHeaders();
+        const contactRes = await fetch(
+          `https://backend.leadconnectorhq.com/contacts/${contactId}`,
+          { headers }
+        );
+        const customFields =
+          (await contactRes.json()).contact.customFields || [];
+        const existing = customFields.find((f) => f.id === currentFieldId);
 
-          dateInput.value = existing?.value || "";
-          openModal();
-        } catch (err) {
-          console.error("Error opening snooze modal:", err);
-          alert("Failed to open snooze modal");
-        }
-      });
+        dateInput.value = existing?.value || "";
+        openSnoozeModal();
+      } catch (err) {
+        console.error("Error opening snooze modal:", err);
+        alert("Failed to open snooze modal");
+      }
+    };
 
-    submitBtn.addEventListener("click", async () => {
+    eventHandlers.submitBtn = async () => {
       if (!dateInput.value) return alert("Please select a date");
 
       try {
@@ -207,12 +239,21 @@
         if (!res.ok) throw new Error("API responded with " + res.status);
 
         alert("✅ Snooze set!");
-        closeModal();
+        closeSnoozeModal();
       } catch (err) {
         console.error("Error saving snooze:", err);
         alert("Failed to save snooze:\n" + err.message);
       }
-    });
+    };
+
+    // Attach new event listeners
+    modal
+      .querySelector(".modal-content")
+      .addEventListener("click", eventHandlers.modalContent);
+    modal.addEventListener("click", eventHandlers.modal);
+    cancelBtn.addEventListener("click", eventHandlers.cancelBtn);
+    snoozeBtn.addEventListener("click", eventHandlers.snoozeBtn);
+    submitBtn.addEventListener("click", eventHandlers.submitBtn);
   }
 
   // SPA Navigation Handling
@@ -272,14 +313,45 @@
   }
 
   function cleanupPage() {
-    const snoozeBtn = document.getElementById("snooze-btn");
-    if (snoozeBtn) snoozeBtn.remove();
-
+    // Remove event listeners first
     const modal = document.getElementById("snooze-modal");
+    const cancelBtn = document.getElementById("cancel-snooze");
+    const submitBtn = document.getElementById("submit-snooze");
+    const snoozeBtn = document.getElementById("snooze-btn");
+
+    if (modal && eventHandlers.modalContent) {
+      modal
+        .querySelector(".modal-content")
+        .removeEventListener("click", eventHandlers.modalContent);
+    }
+    if (modal && eventHandlers.modal) {
+      modal.removeEventListener("click", eventHandlers.modal);
+    }
+    if (cancelBtn && eventHandlers.cancelBtn) {
+      cancelBtn.removeEventListener("click", eventHandlers.cancelBtn);
+    }
+    if (snoozeBtn && eventHandlers.snoozeBtn) {
+      snoozeBtn.removeEventListener("click", eventHandlers.snoozeBtn);
+    }
+    if (submitBtn && eventHandlers.submitBtn) {
+      submitBtn.removeEventListener("click", eventHandlers.submitBtn);
+    }
+
+    // Reset event handlers
+    eventHandlers = {
+      snoozeBtn: null,
+      modal: null,
+      modalContent: null,
+      cancelBtn: null,
+      submitBtn: null,
+    };
+
+    // Remove elements
+    if (snoozeBtn) snoozeBtn.remove();
     if (modal) modal.remove();
 
     isInitialized = false;
-    console.log("Cleaned up snooze button from non-conversation page");
+    console.log("Cleaned up snooze button and modal");
   }
 
   // Main Initialization
