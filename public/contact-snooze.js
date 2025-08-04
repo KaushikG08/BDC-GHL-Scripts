@@ -2,7 +2,7 @@
   // Location configuration with snooze field IDs
   const LOCATION_CONFIG = {
     "5p53YW7HzzBidwP4ANYi": "lFH0oXwb1HRVHRTVEV0b",
-    // "Nw2jglUnVxhwl6AwSb9x": "e66nNGVBWFKvZwGmzD10",
+    "Nw2jglUnVxhwl6AwSb9x": "e66nNGVBWFKvZwGmzD10",
   };
 
   // State variables
