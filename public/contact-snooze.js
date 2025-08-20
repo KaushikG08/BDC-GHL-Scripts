@@ -76,7 +76,7 @@
     }
 
     function waitFor(selector, timeout = 10000) {
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve, reject) {
             const start = Date.now();
             const iv = setInterval(() => {
                 const el = document.querySelector(selector);
@@ -123,7 +123,7 @@
                         resolve();
                     }
                 }, 500);
-            });															
+            });
         }
         
         const headers = getAuthHeaders();
@@ -273,14 +273,8 @@
                 
                 const existing = customFields.find((f) => f.id === currentFieldId);
 
-                // Only set to today's date if no existing value
-                if (!existing?.value) {
-                    const today = new Date();
-                    const formattedDate = today.toISOString().split('T')[0];
-                    dateInput.value = formattedDate;
-                } else {
-                    dateInput.value = existing.value;
-                }
+                // Set the date input to the existing value or empty (NO DEFAULT DATE)
+                dateInput.value = existing?.value || "";
                 
                 openSnoozeModal();
             } catch (err) {
