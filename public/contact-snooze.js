@@ -8,7 +8,7 @@
         "Nw2jglUnVxhwl6AwSb9x": "e66nNGVBWFKvZwGmzD10",
     };
 
-    // Token storage - use the same global store as the vehicle details script
+    // Token storage
     if (!window.GHL_TOKEN_STORE) {
         window.GHL_TOKEN_STORE = {
             capturedAuthToken: null,
@@ -109,7 +109,10 @@
     async function getContactId() {
         const parts = window.location.pathname.split("/");
         const idx = parts.indexOf("conversations");
-        const convId = parts[idx + 1];
+        if (idx === -1 || idx + 1 >= parts.length) {
+            throw new Error("Conversation ID not found in URL");
+        }
+        const convId = parts[idx + 2];
         
         // Wait for tokens if not available
         if (!window.GHL_TOKEN_STORE.capturedAuthToken || !window.GHL_TOKEN_STORE.capturedTokenId) {
@@ -120,7 +123,7 @@
                         resolve();
                     }
                 }, 500);
-            });
+            });															
         }
         
         const headers = getAuthHeaders();
@@ -132,7 +135,7 @@
         return convData.contactId;
     }
 
-    // Snooze Button and Modal Management
+    // Snooze Button and Modal Management - PRESERVING ORIGINAL STYLING
     async function createSnoozeButton() {
         try {
             const btnGroup = await waitFor(".button-group.flex");
@@ -143,7 +146,7 @@
                 const buttons = btnGroup.children;
                 const deleteBtn = buttons[buttons.length - 2];
 
-                // Create Snooze button
+                // Create Snooze button - EXACTLY AS IN YOUR ORIGINAL CODE
                 const snoozeBtn = document.createElement("button");
                 snoozeBtn.id = "snooze-btn";
                 snoozeBtn.className =
@@ -167,6 +170,7 @@
         if (!document.getElementById("snooze-modal")) {
             const modal = document.createElement("div");
             modal.id = "snooze-modal";
+            // PRESERVING YOUR ORIGINAL STYLING
             Object.assign(modal.style, {
                 display: "none",
                 position: "fixed",
@@ -177,6 +181,7 @@
                 justifyContent: "center",
             });
 
+            // PRESERVING YOUR ORIGINAL MODAL HTML
             modal.innerHTML = `
                 <div class="modal-content bg-white rounded-lg shadow-xl w-80" style="position:relative">
                     <div class="p-6">
@@ -219,21 +224,21 @@
         const snoozeBtn = document.getElementById("snooze-btn");
 
         // Clean up any existing event listeners first
-        if (eventHandlers.modalContent && modal) {
+        if (eventHandlers.modalContent) {
             modal
                 .querySelector(".modal-content")
                 .removeEventListener("click", eventHandlers.modalContent);
         }
-        if (eventHandlers.modal && modal) {
+        if (eventHandlers.modal) {
             modal.removeEventListener("click", eventHandlers.modal);
         }
-        if (eventHandlers.cancelBtn && cancelBtn) {
+        if (eventHandlers.cancelBtn) {
             cancelBtn.removeEventListener("click", eventHandlers.cancelBtn);
         }
-        if (eventHandlers.snoozeBtn && snoozeBtn) {
+        if (eventHandlers.snoozeBtn) {
             snoozeBtn.removeEventListener("click", eventHandlers.snoozeBtn);
         }
-        if (eventHandlers.submitBtn && submitBtn) {
+        if (eventHandlers.submitBtn) {
             submitBtn.removeEventListener("click", eventHandlers.submitBtn);
         }
 
@@ -268,13 +273,14 @@
                 
                 const existing = customFields.find((f) => f.id === currentFieldId);
 
-                // Set today's date as default
-                const today = new Date();
-                const formattedDate = today.toISOString().split('T')[0];
-                dateInput.value = existing?.value || formattedDate;
-                
-                // Set minimum date to today
-                dateInput.min = formattedDate;
+                // Only set to today's date if no existing value
+                if (!existing?.value) {
+                    const today = new Date();
+                    const formattedDate = today.toISOString().split('T')[0];
+                    dateInput.value = formattedDate;
+                } else {
+                    dateInput.value = existing.value;
+                }
                 
                 openSnoozeModal();
             } catch (err) {
@@ -307,7 +313,7 @@
 
                 if (!res.ok) throw new Error("API responded with " + res.status);
 
-                alert("✅ Snooze set for " + dateInput.value);
+                alert("✅ Snooze set!");
                 closeSnoozeModal();
             } catch (err) {
                 console.error("Error saving snooze:", err);
@@ -316,21 +322,13 @@
         };
 
         // Attach new event listeners
-        if (modal) {
-            modal
-                .querySelector(".modal-content")
-                .addEventListener("click", eventHandlers.modalContent);
-            modal.addEventListener("click", eventHandlers.modal);
-        }
-        if (cancelBtn) {
-            cancelBtn.addEventListener("click", eventHandlers.cancelBtn);
-        }
-        if (snoozeBtn) {
-            snoozeBtn.addEventListener("click", eventHandlers.snoozeBtn);
-        }
-        if (submitBtn) {
-            submitBtn.addEventListener("click", eventHandlers.submitBtn);
-        }
+        modal
+            .querySelector(".modal-content")
+            .addEventListener("click", eventHandlers.modalContent);
+        modal.addEventListener("click", eventHandlers.modal);
+        cancelBtn.addEventListener("click", eventHandlers.cancelBtn);
+        snoozeBtn.addEventListener("click", eventHandlers.snoozeBtn);
+        submitBtn.addEventListener("click", eventHandlers.submitBtn);
     }
 
     // SPA Navigation Handling
@@ -373,17 +371,6 @@
         };
 
         window.addEventListener("popstate", handleSPANavigation);
-    }
-
-    // Token monitor
-    function initTokenMonitor() {
-        setInterval(() => {
-            if (window.GHL_TOKEN_STORE.capturedAuthToken && window.GHL_TOKEN_STORE.capturedTokenId) {
-                console.log("Snooze: Tokens captured and ready");
-            } else {
-                console.log("Snooze: Waiting for tokens...");
-            }
-        }, 5000);
     }
 
     // Page Initialization and Cleanup
@@ -446,7 +433,6 @@
     function init() {
         initSPAObserver();
         initHistoryObserver();
-        initTokenMonitor();
         handleSPANavigation(); // Initial check
     }
 
